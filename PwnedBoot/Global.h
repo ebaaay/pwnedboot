@@ -20,6 +20,8 @@ typedef const char* PCCH;
 typedef char CHAR;
 typedef char* PCH;
 typedef USHORT* PWCH;
+typedef DWORD* PDWORD;
+typedef USHORT* PUSHORT;
 
 #if defined(_M_AMD64)
 typedef unsigned __int64 ULONG_PTR;
