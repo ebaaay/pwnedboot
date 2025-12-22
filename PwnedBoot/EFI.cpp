@@ -67,7 +67,7 @@ void EFI::SplashScreen()
 {
     gST->ConOut->SetAttribute(gST->ConOut, EFI_WHITE | EFI_BACKGROUND_BLACK);
     gST->ConOut->ClearScreen(gST->ConOut);
-    gST->ConOut->EnableCursor(ST->ConOut, true);
+    gST->ConOut->EnableCursor(gST->ConOut, true);
 
     gST->ConOut->SetAttribute(gST->ConOut, EFI_WHITE | EFI_BACKGROUND_BLACK);
     Print((const CHAR16*)L"Pwned");

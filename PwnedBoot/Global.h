@@ -17,6 +17,9 @@ typedef __int64 LONG64;
 typedef long LONG;
 typedef void* PVOID;
 typedef const char* PCCH;
+typedef char CHAR;
+typedef char* PCH;
+typedef USHORT* PWCH;
 
 #if defined(_M_AMD64)
 typedef unsigned __int64 ULONG_PTR;
@@ -30,6 +33,12 @@ struct _NLS_DATA_BLOCK;
 struct _ARC_DISK_INFORMATION;
 struct _LOADER_PARAMETER_EXTENSION;
 struct _RTL_BALANCED_NODE;
+
+typedef struct _UNICODE_STRING {
+    USHORT Length;
+    USHORT MaximumLength;
+    PWCH   Buffer;
+} UNICODE_STRING, *PUNICODE_STRING;
 
 // include EFI headers to get LIST_ENTRY and EFI types
 #include "EFIGlobal.h"

@@ -110,3 +110,27 @@ typedef struct _LOADER_PARAMETER_BLOCK
     CHAR* ArcWindowsSysPartName;                                            //0x158
     struct _RTL_RB_TREE MemoryDescriptorTree;                               //0x160
 } LOADER_PARAMETER_BLOCK, * PLOADER_PARAMETER_BLOCK;
+
+typedef struct _KLDR_DATA_TABLE_ENTRY
+{
+    LIST_ENTRY InLoadOrderLinks;
+    PVOID ExceptionTable;
+    ULONG ExceptionTableSize;
+    PVOID GpValue;
+    PVOID NonPagedDebugInfo;
+    PVOID DllBase;
+    PVOID EntryPoint;
+    ULONG SizeOfImage;
+    UNICODE_STRING FullDllName;
+    UNICODE_STRING BaseDllName;
+    ULONG Flags;
+    USHORT LoadCount;
+    USHORT TlsIndex;
+    LIST_ENTRY HashLinks;
+    PVOID SectionPointer;
+    ULONG CheckSum;
+    ULONG TimeDateStamp;
+    PVOID LoadedImports;
+    PVOID EntryPointActivationContext;
+    PVOID PatchInformation;
+} KLDR_DATA_TABLE_ENTRY, * PKLDR_DATA_TABLE_ENTRY;

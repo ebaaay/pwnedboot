@@ -1,4 +1,4 @@
-#include <ntifs.h>
+#include "Global.h"
 
 __declspec(dllexport) ULONG64 McImageInfo = 0x3800000001;
 
