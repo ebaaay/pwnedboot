@@ -1,0 +1,32 @@
+name: Build PwnedBoot
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: Add MSBuild to PATH
+      uses: microsoft/setup-msbuild@v2
+
+    - name: Build PwnedBoot
+      working-directory: .
+      run: msbuild PwnedBoot.sln /p:Configuration=Release /p:Platform=x64
+
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: PwnedBoot-Binary
+        path: |
+          x64/Release/*.dll
+          x64/Release/*.sys
