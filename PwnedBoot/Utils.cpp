@@ -119,3 +119,21 @@ extern "C" PVOID NTAPI RtlFindExportedRoutineByName(PVOID imageBase, PCCH routin
 
     return NULL;
 }
+
+PIMAGE_SECTION_HEADER Utils::GetSectionHeader(PVOID imageBase, const char* sectionName)
+{
+    PIMAGE_DOS_HEADER dosHeader = (PIMAGE_DOS_HEADER)imageBase;
+    if (dosHeader->e_magic != IMAGE_DOS_SIGNATURE)
+        return NULL;
+
+    PIMAGE_NT_HEADERS64 ntHeaders = (PIMAGE_NT_HEADERS64)((ULONG_PTR)imageBase + dosHeader->e_lfanew);
+    PIMAGE_SECTION_HEADER section = IMAGE_FIRST_SECTION(ntHeaders);
+
+    for (WORD i = 0; i < ntHeaders->FileHeader.NumberOfSections; i++)
+    {
+        if (memcmp(section[i].Name, sectionName, 8) == 0)
+            return &section[i];
+    }
+
+    return NULL;
+}
