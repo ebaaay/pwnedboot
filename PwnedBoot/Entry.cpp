@@ -17,85 +17,8 @@ EXTERN_C NTKERNELAPI PVOID NTAPI RtlFindExportedRoutineByName(PVOID imageBase, P
 
 EXTERN_C NTSTATUS EntryPoint()
 {
-    /*
-     * The entry point will be first executed from winload.efi
-     * and then 2 times from the ntoskrnl.exe if the boot continues.
-     */
-
-    ULONG64 returnAddress = reinterpret_cast<ULONG64>(_ReturnAddress());
-
-    // Search for MZ signature (0x5A4D) in 4KB increments (page aligned)
-    ULONG64 searchBase = returnAddress & ~0xFFF;
-    int limit = 0;
-    while (*reinterpret_cast<USHORT*>(searchBase) != 0x5A4D && limit < 0x1000) {
-        searchBase -= 0x1000;
-        limit++;
-    }
-
-    if (limit >= 0x1000) {
-        // DIAGNOSTIC 1: Si llegamos aquí, no encontramos el inicio de Winload
-        while (true) { __halt(); }
-    }
-
-    const ULONG64 moduleBase = searchBase;
-
-    // Try primary, secondary and tertiary patterns for EfiST
-    ULONG64 systemTableScan = Utils::FindPatternImage(reinterpret_cast<PVOID>(moduleBase), "48 8B 05 ? ? ? ? 33 FF 4C 8B E9 48 8B 68 18 48 85 ED 75 0A");
-    if (!systemTableScan) systemTableScan = Utils::FindPatternImage(reinterpret_cast<PVOID>(moduleBase), "48 8B 05 ? ? ? ? 48 8B 40 18 48 8B 50 20");
-    if (!systemTableScan) systemTableScan = Utils::FindPatternImage(reinterpret_cast<PVOID>(moduleBase), "48 8B 05 ? ? ? ? 33 FF 48 8B E9");
-
-    if (!systemTableScan) {
-        // DIAGNOSTIC 2: No se encontró la tabla de EFI (systemTableScan)
-        while (true) { __halt(); }
-    }
-
-    const ULONG64 ptrAddress = (systemTableScan + 7) + *reinterpret_cast<int*>(systemTableScan + 3);
-    const ULONG64 resolvedSystemTable = *reinterpret_cast<ULONG64*>(ptrAddress);
-    const ULONG64 resolvedImageHandle = *reinterpret_cast<ULONG64*>(ptrAddress + 8);
-
-    EFI::Stage0(reinterpret_cast<PVOID>(resolvedImageHandle), reinterpret_cast<PVOID>(resolvedSystemTable));
-
-    // Patterns for BlpArchSwitchContext
-    BlpArchSwitchContext = reinterpret_cast<BlpArchSwitchContext_t>(Utils::FindPatternImage(reinterpret_cast<PVOID>(moduleBase), "40 53 48 83 EC 20 48 8B 15"));
-    if (!BlpArchSwitchContext) BlpArchSwitchContext = reinterpret_cast<BlpArchSwitchContext_t>(Utils::FindPatternImage(reinterpret_cast<PVOID>(moduleBase), "48 8B C4 48 89 58 08 4c 89 48 20 40 56 48 83 ec 30"));
-    if (!BlpArchSwitchContext) BlpArchSwitchContext = reinterpret_cast<BlpArchSwitchContext_t>(Utils::FindPatternImage(reinterpret_cast<PVOID>(moduleBase), "48 8B C4 48 89 58 08 48 89 68 10 48 89 70 18 48 89 78 20 41 54 41 56 41 57 48 83 EC 30"));
-
-    if (!BlpArchSwitchContext) {
-        // DIAGNOSTIC 3: No se encontró la función de cambio de contexto
-        while (true) { __halt(); }
-    }
-
-    PIMAGE_DOS_HEADER dosHeader = &__ImageBase;
-    PIMAGE_NT_HEADERS64 ntHeaders = reinterpret_cast<PIMAGE_NT_HEADERS64>(reinterpret_cast<ULONG64>(dosHeader) + dosHeader->e_lfanew);
-
-    PVOID targetBase = reinterpret_cast<PVOID>(moduleBase);
-    memcpy(targetBase, dosHeader, ntHeaders->OptionalHeader.SizeOfImage);
-
-    PVOID entry = RtlFindExportedRoutineByName(targetBase, "RemappedEntry");
-    if (!entry) {
-        // DIAGNOSTIC 4: Error al encontrar la exportación para el remapeo
-        while (true) { __halt(); }
-    }
-
-    memset(targetBase, 0, ntHeaders->OptionalHeader.SizeOfHeaders);
-    return reinterpret_cast<NTSTATUS(*)()>(entry)();
-}
-
-EXTERN_C __declspec(dllexport) NTSTATUS RemappedEntry()
-{
-    /*
-     * This entry is now located in the region where winload.efi was originally
-     * (or still is but just the rest of it...). Now lets switch the context to
-     * firmware and lets pray that we have not overwritten anything related to the
-     * context switching.
-     */
-    BlpArchSwitchContext(FirmwareContext);
-
-    EFI::Stage1();
-
-    //EFI::ChangeResolution();
-    EFI::SplashScreen();
-    EFI::Exec();
-
-    INFINITE_LOOP();
+    // If this freezes the PC, the DLL LOADED successfully.
+    // If it still reboots to recovery, the DLL is NOT loading (DSE/Secure Boot blocking).
+    while (true) { __halt(); }
+    return STATUS_SUCCESS;
 }

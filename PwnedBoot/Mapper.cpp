@@ -2,37 +2,35 @@
 #include "TpmHookByteContent.h"
 #include "Utils.h"
 
+// PwnedBoot Mapper - Boot Driver Injection
+// This version works by hooking ExitBootServices to find the LoaderParameterBlock
+// and adding the tpm-hook.sys driver to the boot driver list.
+
 typedef EFI_STATUS(EFIAPI* EFI_START_IMAGE)(EFI_HANDLE ImageHandle, UINTN* ExitDataSize, CHAR16** ExitData);
 typedef EFI_STATUS(EFIAPI* EFI_EXIT_BOOT_SERVICES)(EFI_HANDLE ImageHandle, UINTN MapKey);
 
 static EFI_START_IMAGE OriginalStartImage = nullptr;
 static EFI_EXIT_BOOT_SERVICES OriginalExitBootServices = nullptr;
+
 static PVOID AllocatedDriverBase = nullptr;
 
 static PLOADER_PARAMETER_BLOCK FindLoaderParameterBlock()
 {
-    // Método Seguro: Buscamos ntoskrnl.exe en la lista de módulos cargados.
-    // Esto es mucho más estable que escanear por números de versión.
-    for (ULONG_PTR addr = 0x1000000; addr < 0x80000000; addr += 0x1000)
+    // Heuristic scan for LoaderParameterBlock in the common memory region
+    // OsMajorVersion: 10, OsMinorVersion: 0, Size: ~0x100-0x1000
+    // We scan from 1MB to 1GB at 8-byte alignment.
+    for (ULONG_PTR addr = 0x1000000; addr < 0x40000000; addr += 0x8)
     {
-        // Buscamos la firma "ntoskrnl.exe" en Unicode
-        if (memcmp((void*)addr, L"n\0t\0o\0s\0k\0r\0n\0l\0.\0e\0x\0e", 24) == 0)
+        PLOADER_PARAMETER_BLOCK lpb = (PLOADER_PARAMETER_BLOCK)addr;
+        if (lpb->OsMajorVersion == 10 && lpb->OsMinorVersion == 0)
         {
-            // Hemos encontrado el nombre en una estructura KLDR_DATA_TABLE_ENTRY
-            // Retrocedemos para encontrar el inicio de la estructura y luego la lista
-            for (ULONG_PTR search = addr - 0x200; search < addr; search += 8)
+            if (lpb->Size >= 0x100 && lpb->Size <= 0x1000)
             {
-                PKLDR_DATA_TABLE_ENTRY entry = (PKLDR_DATA_TABLE_ENTRY)search;
-                if (entry->FullDllName.Buffer == (PWCH)addr)
+                // Verify that list pointers look like valid physical addresses in EFI
+                if ((ULONG64)lpb->LoadOrderListHead.Flink > 0x1000 && 
+                    (ULONG64)lpb->LoadOrderListHead.Flink < 0x0000000800000000) 
                 {
-                    // Tenemos una entrada válida. Ahora buscamos la cabeza de la lista (LPB)
-                    // La InLoadOrderLinks apunta de vuelta al LoaderParameterBlock
-                    PLOADER_PARAMETER_BLOCK lpb = (PLOADER_PARAMETER_BLOCK)((ULONG_PTR)entry->InLoadOrderLinks.Blink - offsetof(LOADER_PARAMETER_BLOCK, LoadOrderListHead));
-                    
-                    // Verificación extra de seguridad
-                    if (lpb->OsMajorVersion == 10) {
-                        return lpb;
-                    }
+                    return lpb;
                 }
             }
         }
@@ -47,24 +45,27 @@ static EFI_STATUS EFIAPI HookedExitBootServices(EFI_HANDLE ImageHandle, UINTN Ma
     PLOADER_PARAMETER_BLOCK lpb = FindLoaderParameterBlock();
     if (lpb && AllocatedDriverBase)
     {
+        // Allocate entry and strings in LoaderData to ensure persistence during kernel transition
         PKLDR_DATA_TABLE_ENTRY entry = nullptr;
         EFI_STATUS status = gBS->AllocatePool(EfiLoaderData, sizeof(KLDR_DATA_TABLE_ENTRY), (void**)&entry);
         
         if (!EFI_ERROR(status) && entry)
         {
             memset(entry, 0, sizeof(KLDR_DATA_TABLE_ENTRY));
+
             PIMAGE_NT_HEADERS64 nt = (PIMAGE_NT_HEADERS64)((ULONG_PTR)AllocatedDriverBase + ((PIMAGE_DOS_HEADER)AllocatedDriverBase)->e_lfanew);
             
             entry->DllBase = AllocatedDriverBase;
             entry->SizeOfImage = nt->OptionalHeader.SizeOfImage;
             entry->EntryPoint = (PVOID)((ULONG_PTR)AllocatedDriverBase + nt->OptionalHeader.AddressOfEntryPoint);
             
-            // Nombres del driver
+            // Allocate and copy names for the kernel to reference
             PWCH nameBuf = nullptr;
             gBS->AllocatePool(EfiLoaderData, 100, (void**)&nameBuf);
-            if (nameBuf) {
-                const wchar_t* n = L"tpm-hook.sys";
-                for (int i = 0; i < 13; i++) nameBuf[i] = n[i];
+            if (nameBuf)
+            {
+                const wchar_t* name = L"tpm-hook.sys";
+                for (int i = 0; i < 13; i++) nameBuf[i] = name[i];
                 entry->BaseDllName.Buffer = nameBuf;
                 entry->BaseDllName.Length = 24;
                 entry->BaseDllName.MaximumLength = 26;
@@ -72,17 +73,19 @@ static EFI_STATUS EFIAPI HookedExitBootServices(EFI_HANDLE ImageHandle, UINTN Ma
 
             PWCH fullPathBuf = nullptr;
             gBS->AllocatePool(EfiLoaderData, 200, (void**)&fullPathBuf);
-            if (fullPathBuf) {
-                const wchar_t* p = L"\\SystemRoot\\System32\\Drivers\\tpm-hook.sys";
-                for (int i = 0; i < 41; i++) fullPathBuf[i] = p[i];
+            if (fullPathBuf)
+            {
+                const wchar_t* path = L"\\SystemRoot\\System32\\Drivers\\tpm-hook.sys";
+                for (int i = 0; i < 41; i++) fullPathBuf[i] = path[i];
                 entry->FullDllName.Buffer = fullPathBuf;
                 entry->FullDllName.Length = 80;
                 entry->FullDllName.MaximumLength = 82;
             }
 
-            entry->Flags = 0x01; // Cargado
+            entry->Flags = 0x01; // LDRP_IMAGE_DLL
 
-            // Inserción segura en la lista de arranque
+            // Insert our entry into the BootDriverListHead
+            // We insert at the beginning so the kernel processes it early.
             entry->InLoadOrderLinks.Flink = lpb->BootDriverListHead.Flink;
             entry->InLoadOrderLinks.Blink = &lpb->BootDriverListHead;
             lpb->BootDriverListHead.Flink->Blink = &entry->InLoadOrderLinks;
@@ -100,6 +103,7 @@ static EFI_STATUS EFIAPI HookedStartImage(EFI_HANDLE ImageHandle, UINTN* ExitDat
         OriginalExitBootServices = gBS->ExitBootServices;
         gBS->ExitBootServices = HookedExitBootServices;
     }
+
     return OriginalStartImage(ImageHandle, ExitDataSize, ExitData);
 }
 
