@@ -24,21 +24,24 @@ EXTERN_C NTSTATUS EntryPoint()
 
     ULONG64 returnAddress = reinterpret_cast<ULONG64>(_ReturnAddress());
 
-    while (memcmp(reinterpret_cast<PVOID>(returnAddress), "This program cannot be run in DOS mode", 38) != 0)
-        returnAddress--;
+    // Search for MZ signature (0x5A4D) in 4KB increments (page aligned)
+    ULONG64 searchBase = returnAddress & ~0xFFF;
+    while (*reinterpret_cast<USHORT*>(searchBase) != 0x5A4D)
+        searchBase -= 0x1000;
 
-    const ULONG64 moduleBase = returnAddress - 0x4E;
+    const ULONG64 moduleBase = searchBase;
 
-    // EfiCloseProtocol
-    const ULONG64 systemTableScan = Utils::FindPatternImage(reinterpret_cast<PVOID>(moduleBase), "48 8B 05 ? ? ? ? 33 FF 4C 8B E9 48 8B 68 18 48 85 ED 75 0A");
+    // Try primary pattern (Win 11 / Newer Win 10)
+    ULONG64 systemTableScan = Utils::FindPatternImage(reinterpret_cast<PVOID>(moduleBase), "48 8B 05 ? ? ? ? 33 FF 4C 8B E9 48 8B 68 18 48 85 ED 75 0A");
+    
+    // If failed, try secondary pattern (Older Win 10)
+    if (!systemTableScan) {
+        systemTableScan = Utils::FindPatternImage(reinterpret_cast<PVOID>(moduleBase), "48 8B 05 ? ? ? ? 48 8B 40 18 48 8B 50 20");
+    }
+
     if (!systemTableScan)
         return STATUS_INVALID_PARAMETER_1;
 
-    /*
-     * .data:00000001802E6EB8 EfiST           dq ?
-     * .data:00000001802E6EB8
-     * .data:00000001802E6EC0 EfiImageHandle  dq ?
-     */
     const ULONG64 ptrAddress = (systemTableScan + 7) + *reinterpret_cast<int*>(systemTableScan + 3);
     const ULONG64 resolvedSystemTable = *reinterpret_cast<ULONG64*>(ptrAddress);
     const ULONG64 resolvedImageHandle = *reinterpret_cast<ULONG64*>(ptrAddress + 8);
@@ -46,6 +49,12 @@ EXTERN_C NTSTATUS EntryPoint()
     EFI::Stage0(reinterpret_cast<PVOID>(resolvedImageHandle), reinterpret_cast<PVOID>(resolvedSystemTable));
 
     BlpArchSwitchContext = reinterpret_cast<BlpArchSwitchContext_t>(Utils::FindPatternImage(reinterpret_cast<PVOID>(moduleBase), "40 53 48 83 EC 20 48 8B 15"));
+    
+    // Fallback for BlpArchSwitchContext on some Win 10 builds
+    if (!BlpArchSwitchContext) {
+        BlpArchSwitchContext = reinterpret_cast<BlpArchSwitchContext_t>(Utils::FindPatternImage(reinterpret_cast<PVOID>(moduleBase), "48 8B C4 48 89 58 08 4c 89 48 20 40 56 48 83 ec 30"));
+    }
+
     if (!BlpArchSwitchContext)
         return STATUS_INVALID_PARAMETER_2;
 
