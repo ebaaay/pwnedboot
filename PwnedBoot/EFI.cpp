@@ -31,7 +31,7 @@ void EFI::ChangeResolution()
     EFI_STATUS status = gBS->LocateProtocol(&gEfiGraphicsOutputProtocolGuid, nullptr, reinterpret_cast<void**>(&GOP));
     if (EFI_ERROR(status))
     {
-        Print(L"LocateProtocol() failed: %r\n", status);
+        Print((const CHAR16*)L"LocateProtocol() failed: %r\n", status);
         return;
     }
 
@@ -58,7 +58,7 @@ void EFI::ChangeResolution()
     status = GOP->SetMode(GOP, maxResolutionMode);
     if (EFI_ERROR(status))
     {
-        Print(L"SetMode() failed: %r\n", status);
+        Print((const CHAR16*)L"SetMode() failed: %r\n", status);
         return;
     }
 }
@@ -70,13 +70,13 @@ void EFI::SplashScreen()
     gST->ConOut->EnableCursor(ST->ConOut, true);
 
     gST->ConOut->SetAttribute(gST->ConOut, EFI_WHITE | EFI_BACKGROUND_BLACK);
-    Print(L"Pwned");
+    Print((const CHAR16*)L"Pwned");
 
     gST->ConOut->SetAttribute(gST->ConOut, EFI_LIGHTRED | EFI_BACKGROUND_BLACK);
-    Print(L"Boot\n");
+    Print((const CHAR16*)L"Boot\n");
 
     gST->ConOut->SetAttribute(gST->ConOut, EFI_LIGHTGRAY | EFI_BACKGROUND_BLACK);
-    Print(L"by Samuel Tulach (tulach.cc)\n\n");
+    Print((const CHAR16*)L"by Samuel Tulach (tulach.cc)\n\n");
 
     gST->ConOut->SetAttribute(gST->ConOut, EFI_LIGHTGRAY | EFI_BACKGROUND_BLACK);
 }
@@ -91,7 +91,7 @@ EFI_STATUS DiskPicker(EFI_HANDLE* chosenDiskHandle)
     EFI_STATUS status = gBS->LocateHandleBuffer(ByProtocol, &gEfiBlockIoProtocolGuid, NULL, &handleCount, &handleBuffer);
     if (EFI_ERROR(status))
     {
-        Print(L"LocateHandleBuffer() failed with status: %r\n", status);
+        Print((const CHAR16*)L"LocateHandleBuffer() failed with status: %r\n", status);
         return status;
     }
 
@@ -100,34 +100,34 @@ EFI_STATUS DiskPicker(EFI_HANDLE* chosenDiskHandle)
         status = gBS->HandleProtocol(handleBuffer[index], &gEfiBlockIoProtocolGuid, reinterpret_cast<void**>(&blockIo));
         if (EFI_ERROR(status))
         {
-            Print(L"HandleProtocol() failed for handle %u with status: %r\n", index, status);
+            Print((const CHAR16*)L"HandleProtocol() failed for handle %u with status: %r\n", index, status);
             continue;
         }
 
         status = gBS->HandleProtocol(handleBuffer[index], &gEfiDevicePathProtocolGuid, reinterpret_cast<void**>(&devicePath));
         if (EFI_ERROR(status))
         {
-            Print(L"HandleProtocol() failed for handle %u with status: %r\n", index, status);
+            Print((const CHAR16*)L"HandleProtocol() failed for handle %u with status: %r\n", index, status);
             continue;
         }
 
         CHAR16* devicePathStr = Utils::DevicePathToText(devicePath, true, false);
         if (!devicePathStr)
         {
-            Print(L"DevicePathToText() failed for index %u\n", index);
+            Print((const CHAR16*)L"DevicePathToText() failed for index %u\n", index);
             continue;
         }
 
-        Print(L"[%u]: %s\n", index, devicePathStr);
+        Print((const CHAR16*)L"[%u]: %s\n", index, devicePathStr);
         FreePool(devicePathStr);
     }
 
-    Print(L"Enter index: ");
+    Print((const CHAR16*)L"Enter index: ");
     UINTN chosenIndex;
     status = Utils::GetUserInput(&chosenIndex);
     if (EFI_ERROR(status) || chosenIndex >= handleCount)
     {
-        Print(L"Invalid selection\n");
+        Print((const CHAR16*)L"Invalid selection\n");
         FreePool(handleBuffer);
         return EFI_INVALID_PARAMETER;
     }
@@ -148,15 +148,15 @@ void EFI::BootFromDisk()
         return;
     }
 
-    Print(L"\n");
-    Print(L"Picked disk with handle 0x%X\n", targetDisk);
+    Print((const CHAR16*)L"\n");
+    Print((const CHAR16*)L"Picked disk with handle 0x%X\n", targetDisk);
 
-    Print(L"Loading \\EFI\\BOOT\\bootx64.efi...\n", targetDisk);
+    Print((const CHAR16*)L"Loading \\EFI\\BOOT\\bootx64.efi...\n", targetDisk);
     CHAR16* bootloaderPath = const_cast<CHAR16*>(L"\\EFI\\BOOT\\bootx64.efi");
     EFI_DEVICE_PATH_PROTOCOL* bootloaderDevicePath = FileDevicePath(targetDisk, bootloaderPath);
     if (!bootloaderDevicePath)
     {
-        Print(L"FileDevicePath() returned null\n");
+        Print((const CHAR16*)L"FileDevicePath() returned null\n");
         Utils::StallForever();
         return;
     }
@@ -165,44 +165,44 @@ void EFI::BootFromDisk()
     status = gBS->LoadImage(true, g_ImageHandle, bootloaderDevicePath, nullptr, 0, &bootloaderHandle);
     if (EFI_ERROR(status))
     {
-        Print(L"LoadImage() failed: %r\n", status);
+        Print((const CHAR16*)L"LoadImage() failed: %r\n", status);
         Utils::StallForever();
         return;
     }
 
-    Print(L"Loaded with handle 0x%X\n", bootloaderHandle);
+    Print((const CHAR16*)L"Loaded with handle 0x%X\n", bootloaderHandle);
 
-    Print(L"Staring \\EFI\\BOOT\\bootx64.efi...\n");
+    Print((const CHAR16*)L"Staring \\EFI\\BOOT\\bootx64.efi...\n");
     //gBS->Stall(SECONDS_TO_MICROSECONDS(1));
     status = gBS->StartImage(bootloaderHandle, nullptr, nullptr);
     if (EFI_ERROR(status))
     {
-        Print(L"StartImage() failed: %r\n", status);
+        Print((const CHAR16*)L"StartImage() failed: %r\n", status);
         Utils::StallForever();
         return;
     }
 
-    Print(L"Should not get here...\n");
+    Print((const CHAR16*)L"Should not get here...\n");
     Utils::StallForever();
 }
 
 void EFI::Exec()
 {
-    Print(L"g_ImageHandle: 0x%X\n", g_ImageHandle);
-    Print(L"g_SystemTable: 0x%X\n\n", g_SystemTable);
+    Print((const CHAR16*)L"g_ImageHandle: 0x%X\n", g_ImageHandle);
+    Print((const CHAR16*)L"g_SystemTable: 0x%X\n\n", g_SystemTable);
 
-    Print(L"[0]: Boot from disk\n");
-    Print(L"Enter index: ");
+    Print((const CHAR16*)L"[0]: Boot from disk\n");
+    Print((const CHAR16*)L"Enter index: ");
     UINTN chosenIndex;
     EFI_STATUS status = Utils::GetUserInput(&chosenIndex);
     if (EFI_ERROR(status) || chosenIndex >= 1)
     {
-        Print(L"Invalid selection\n");
+        Print((const CHAR16*)L"Invalid selection\n");
         Utils::StallForever();
         return;
     }
 
-    Print(L"\n");
+    Print((const CHAR16*)L"\n");
 
     /*
      * Add options to manual map an application, driver, patch the bootloader...

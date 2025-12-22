@@ -58,7 +58,7 @@ EFI_STATUS Utils::GetUserInput(UINTN* userInput)
         if (key.UnicodeChar >= L'0' && key.UnicodeChar <= L'9')
         {
             value = value * 10 + (key.UnicodeChar - L'0');
-            Print(L"%c", key.UnicodeChar);
+            Print((const CHAR16*)L"%c", key.UnicodeChar);
         }
         else if (key.UnicodeChar == CHAR_CARRIAGE_RETURN)
         {
@@ -66,12 +66,12 @@ EFI_STATUS Utils::GetUserInput(UINTN* userInput)
         }
         else
         {
-            Print(L"\nInvalid! Enter index: ");
+            Print((const CHAR16*)L"\nInvalid! Enter index: ");
             value = 0;
         }
     }
 
     *userInput = value;
-    Print(L"\n");
+    Print((const CHAR16*)L"\n");
     return EFI_SUCCESS;
 }
