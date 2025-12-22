@@ -43,7 +43,7 @@ LibGetSmbiosSystemGuidAndSerialNumber(
         return EFI_NOT_FOUND;
     }
 
-    Smbios.Hdr = (SMBIOS_HEADER*)SmbiosTable->TableAddress;
+    Smbios.Hdr = (SMBIOS_HEADER*)(UINTN)SmbiosTable->TableAddress;
     SmbiosEnd.Raw = (UINT8*)((UINTN)SmbiosTable->TableAddress + SmbiosTable->TableLength);
     for (Index = 0; Index < SmbiosTable->TableLength; Index++) {
         if (Smbios.Hdr->Type == 1) {

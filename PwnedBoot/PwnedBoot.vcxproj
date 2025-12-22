@@ -102,7 +102,6 @@
     <Link>
       <EntryPointSymbol>EntryPoint</EntryPointSymbol>
       <IgnoreAllDefaultLibraries>true</IgnoreAllDefaultLibraries>
-      <SubSystem>EFI Application</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
   </ItemDefinitionGroup>
