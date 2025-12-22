@@ -26,21 +26,28 @@ EXTERN_C NTSTATUS EntryPoint()
 
     // Search for MZ signature (0x5A4D) in 4KB increments (page aligned)
     ULONG64 searchBase = returnAddress & ~0xFFF;
-    while (*reinterpret_cast<USHORT*>(searchBase) != 0x5A4D)
+    int limit = 0;
+    while (*reinterpret_cast<USHORT*>(searchBase) != 0x5A4D && limit < 0x1000) {
         searchBase -= 0x1000;
+        limit++;
+    }
+
+    if (limit >= 0x1000) {
+        // DIAGNOSTIC 1: Si llegamos aquí, no encontramos el inicio de Winload
+        while (true) { __halt(); }
+    }
 
     const ULONG64 moduleBase = searchBase;
 
-    // Try primary pattern (Win 11 / Newer Win 10)
+    // Try primary, secondary and tertiary patterns for EfiST
     ULONG64 systemTableScan = Utils::FindPatternImage(reinterpret_cast<PVOID>(moduleBase), "48 8B 05 ? ? ? ? 33 FF 4C 8B E9 48 8B 68 18 48 85 ED 75 0A");
-    
-    // If failed, try secondary pattern (Older Win 10)
-    if (!systemTableScan) {
-        systemTableScan = Utils::FindPatternImage(reinterpret_cast<PVOID>(moduleBase), "48 8B 05 ? ? ? ? 48 8B 40 18 48 8B 50 20");
-    }
+    if (!systemTableScan) systemTableScan = Utils::FindPatternImage(reinterpret_cast<PVOID>(moduleBase), "48 8B 05 ? ? ? ? 48 8B 40 18 48 8B 50 20");
+    if (!systemTableScan) systemTableScan = Utils::FindPatternImage(reinterpret_cast<PVOID>(moduleBase), "48 8B 05 ? ? ? ? 33 FF 48 8B E9");
 
-    if (!systemTableScan)
-        return STATUS_INVALID_PARAMETER_1;
+    if (!systemTableScan) {
+        // DIAGNOSTIC 2: No se encontró la tabla de EFI (systemTableScan)
+        while (true) { __halt(); }
+    }
 
     const ULONG64 ptrAddress = (systemTableScan + 7) + *reinterpret_cast<int*>(systemTableScan + 3);
     const ULONG64 resolvedSystemTable = *reinterpret_cast<ULONG64*>(ptrAddress);
@@ -48,46 +55,29 @@ EXTERN_C NTSTATUS EntryPoint()
 
     EFI::Stage0(reinterpret_cast<PVOID>(resolvedImageHandle), reinterpret_cast<PVOID>(resolvedSystemTable));
 
+    // Patterns for BlpArchSwitchContext
     BlpArchSwitchContext = reinterpret_cast<BlpArchSwitchContext_t>(Utils::FindPatternImage(reinterpret_cast<PVOID>(moduleBase), "40 53 48 83 EC 20 48 8B 15"));
-    
-    // Fallback for BlpArchSwitchContext on some Win 10 builds
+    if (!BlpArchSwitchContext) BlpArchSwitchContext = reinterpret_cast<BlpArchSwitchContext_t>(Utils::FindPatternImage(reinterpret_cast<PVOID>(moduleBase), "48 8B C4 48 89 58 08 4c 89 48 20 40 56 48 83 ec 30"));
+    if (!BlpArchSwitchContext) BlpArchSwitchContext = reinterpret_cast<BlpArchSwitchContext_t>(Utils::FindPatternImage(reinterpret_cast<PVOID>(moduleBase), "48 8B C4 48 89 58 08 48 89 68 10 48 89 70 18 48 89 78 20 41 54 41 56 41 57 48 83 EC 30"));
+
     if (!BlpArchSwitchContext) {
-        BlpArchSwitchContext = reinterpret_cast<BlpArchSwitchContext_t>(Utils::FindPatternImage(reinterpret_cast<PVOID>(moduleBase), "48 8B C4 48 89 58 08 4c 89 48 20 40 56 48 83 ec 30"));
+        // DIAGNOSTIC 3: No se encontró la función de cambio de contexto
+        while (true) { __halt(); }
     }
-
-    if (!BlpArchSwitchContext)
-        return STATUS_INVALID_PARAMETER_2;
-
-    /*
-     * We obviously cannot switch the context here, since that would
-     * instantly crash the system. This module is NOT mapped in the firmware
-     * context. Instead, we will remap ourselves over winload.efi which is
-     * so we can then switch to it.
-     */
 
     PIMAGE_DOS_HEADER dosHeader = &__ImageBase;
     PIMAGE_NT_HEADERS64 ntHeaders = reinterpret_cast<PIMAGE_NT_HEADERS64>(reinterpret_cast<ULONG64>(dosHeader) + dosHeader->e_lfanew);
 
-    /*
-     * This is the most fun part, now we have to pick a location that will not fuck up
-     * the BlpArchSwitchContext functionality or the context save data. This looks really
-     * scary until you realize that winload.efi is quite large (image size 0x304000) and that
-     * its sections start with .text, then page and the data is last. Might change with
-     * different Windows versions.
-     */
     PVOID targetBase = reinterpret_cast<PVOID>(moduleBase);
     memcpy(targetBase, dosHeader, ntHeaders->OptionalHeader.SizeOfImage);
 
     PVOID entry = RtlFindExportedRoutineByName(targetBase, "RemappedEntry");
-    if (!entry)
-        return STATUS_INVALID_PARAMETER_3;
+    if (!entry) {
+        // DIAGNOSTIC 4: Error al encontrar la exportación para el remapeo
+        while (true) { __halt(); }
+    }
 
-    /*
-     * Remove the headers so the image is not reallocated by the firmware
-     * or some crap like that which could mess things up.
-     */
     memset(targetBase, 0, ntHeaders->OptionalHeader.SizeOfHeaders);
-
     return reinterpret_cast<NTSTATUS(*)()>(entry)();
 }
 
