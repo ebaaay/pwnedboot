@@ -123,7 +123,7 @@
     <ClCompile Include="EFI.cpp" />
     <ClCompile Include="EFIUtils.cpp" />
     <ClCompile Include="Entry.cpp" />
-    <ClCompile Include="Exports.c" />
+    <ClCompile Include="Exports.cpp" />
     <ClCompile Include="gnu-efi\lib\boxdraw.c" />
     <ClCompile Include="gnu-efi\lib\cmdline.c" />
     <ClCompile Include="gnu-efi\lib\console.c" />
