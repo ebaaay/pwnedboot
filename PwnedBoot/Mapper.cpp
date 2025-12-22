@@ -6,8 +6,8 @@
 // and adding the tpm-hook.sys driver to the boot driver list.
 
 extern "C" {
-    #include "gnu-efi/inc/efibind.h"
-    #include "gnu-efi/inc/efi.h"
+    #include <efibind.h>
+    #include <efi.h>
 }
 
 // We need to find winload.efi of the *new* OS.

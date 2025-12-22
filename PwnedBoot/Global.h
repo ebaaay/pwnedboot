@@ -14,18 +14,26 @@ typedef unsigned char UCHAR;
 typedef unsigned short USHORT;
 typedef void* PVOID;
 typedef unsigned __int64 ULONG64;
+typedef unsigned char BYTE;
 typedef unsigned __int64 ULONGLONG;
 typedef char CHAR;
 
-typedef struct _LIST_ENTRY {
-    struct _LIST_ENTRY* Flink;
-    struct _LIST_ENTRY* Blink;
-} LIST_ENTRY, *PLIST_ENTRY;
+// Forward declarations for bootloader types
+struct _CONFIGURATION_COMPONENT_DATA;
+struct _NLS_DATA_BLOCK;
+struct _ARC_DISK_INFORMATION;
+struct _LOADER_PARAMETER_EXTENSION;
+struct _RTL_BALANCED_NODE;
 
 typedef ULONG64* PULONG64;
 typedef const char* PCCH;
 typedef long LONG;
 typedef __int64 LONG64;
+
+#define NTKERNELAPI
+#ifndef EXTERN_C
+#define EXTERN_C extern "C"
+#endif
 
 #ifndef IMAGE_DOS_SIGNATURE
 #define IMAGE_DOS_SIGNATURE                 0x5A4D      // MZ

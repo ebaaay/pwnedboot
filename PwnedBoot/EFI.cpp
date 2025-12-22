@@ -152,7 +152,7 @@ void EFI::BootFromDisk()
     Print((const CHAR16*)L"Picked disk with handle 0x%X\n", targetDisk);
 
     Print((const CHAR16*)L"Loading \\EFI\\BOOT\\bootx64.efi...\n", targetDisk);
-    CHAR16* bootloaderPath = const_cast<CHAR16*>(L"\\EFI\\BOOT\\bootx64.efi");
+    CHAR16* bootloaderPath = (CHAR16*)L"\\EFI\\BOOT\\bootx64.efi";
     EFI_DEVICE_PATH_PROTOCOL* bootloaderDevicePath = FileDevicePath(targetDisk, bootloaderPath);
     if (!bootloaderDevicePath)
     {
