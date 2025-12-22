@@ -140,6 +140,22 @@ typedef struct _IMAGE_NT_HEADERS64 {
     IMAGE_OPTIONAL_HEADER64 OptionalHeader;
 } IMAGE_NT_HEADERS64, *PIMAGE_NT_HEADERS64;
 
+#define IMAGE_DIRECTORY_ENTRY_EXPORT          0
+
+typedef struct _IMAGE_EXPORT_DIRECTORY {
+    ULONG   Characteristics;
+    ULONG   TimeDateStamp;
+    USHORT  MajorVersion;
+    USHORT  MinorVersion;
+    ULONG   Name;
+    ULONG   Base;
+    ULONG   NumberOfFunctions;
+    ULONG   NumberOfNames;
+    ULONG   AddressOfFunctions;     // RVA from base of image
+    ULONG   AddressOfNames;         // RVA from base of image
+    ULONG   AddressOfNameOrdinals;  // RVA from base of image
+} IMAGE_EXPORT_DIRECTORY, *PIMAGE_EXPORT_DIRECTORY;
+
 typedef struct _IMAGE_SECTION_HEADER {
     BYTE    Name[8];
     union {
