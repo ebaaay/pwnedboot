@@ -1,22 +1,28 @@
 #pragma once
 
 #include <intrin.h>
+#include <string.h>
 
-// Use basic definitions instead of ntifs.h to avoid WDK dependency on CI
-typedef long NTSTATUS;
-#define STATUS_SUCCESS                   ((NTSTATUS)0x00000000L)
-#define STATUS_INVALID_PARAMETER_1      ((NTSTATUS)0xC00000EFL)
-#define STATUS_INVALID_PARAMETER_2      ((NTSTATUS)0xC00000F0L)
-#define STATUS_INVALID_PARAMETER_3      ((NTSTATUS)0xC00000F1L)
-
+// Basic types
 typedef unsigned long ULONG;
-typedef unsigned char UCHAR;
 typedef unsigned short USHORT;
-typedef void* PVOID;
-typedef unsigned __int64 ULONG64;
+typedef unsigned char UCHAR;
 typedef unsigned char BYTE;
+typedef unsigned short WORD;
+typedef unsigned long DWORD;
+typedef unsigned int DWORD32;
+typedef unsigned __int64 ULONG64;
 typedef unsigned __int64 ULONGLONG;
-typedef char CHAR;
+typedef __int64 LONG64;
+typedef long LONG;
+typedef void* PVOID;
+typedef const char* PCCH;
+
+#if defined(_M_AMD64)
+typedef unsigned __int64 ULONG_PTR;
+#else
+typedef unsigned long ULONG_PTR;
+#endif
 
 // Forward declarations for bootloader types
 struct _CONFIGURATION_COMPONENT_DATA;
@@ -25,14 +31,24 @@ struct _ARC_DISK_INFORMATION;
 struct _LOADER_PARAMETER_EXTENSION;
 struct _RTL_BALANCED_NODE;
 
-typedef ULONG64* PULONG64;
-typedef const char* PCCH;
-typedef long LONG;
-typedef __int64 LONG64;
+// include EFI headers to get LIST_ENTRY and EFI types
+#include "EFIGlobal.h"
 
+// NT types and macros
+typedef long NTSTATUS;
+#define STATUS_SUCCESS                   ((NTSTATUS)0x00000000L)
+#define STATUS_INVALID_PARAMETER_1      ((NTSTATUS)0xC00000EFL)
+#define STATUS_INVALID_PARAMETER_2      ((NTSTATUS)0xC00000F0L)
+#define STATUS_INVALID_PARAMETER_3      ((NTSTATUS)0xC00000F1L)
+
+#define NTAPI __stdcall
 #define NTKERNELAPI
 #ifndef EXTERN_C
 #define EXTERN_C extern "C"
+#endif
+
+#ifndef FIELD_OFFSET
+#define FIELD_OFFSET(type, field)    ((LONG)(ULONG_PTR)&(((type *)0)->field))
 #endif
 
 #ifndef IMAGE_DOS_SIGNATURE
@@ -114,6 +130,30 @@ typedef struct _IMAGE_NT_HEADERS64 {
     IMAGE_FILE_HEADER FileHeader;
     IMAGE_OPTIONAL_HEADER64 OptionalHeader;
 } IMAGE_NT_HEADERS64, *PIMAGE_NT_HEADERS64;
+
+typedef struct _IMAGE_SECTION_HEADER {
+    BYTE    Name[8];
+    union {
+            ULONG   PhysicalAddress;
+            ULONG   VirtualSize;
+    } Misc;
+    ULONG   VirtualAddress;
+    ULONG   SizeOfRawData;
+    ULONG   PointerToRawData;
+    ULONG   PointerToRelocations;
+    ULONG   PointerToLinenumbers;
+    USHORT  NumberOfRelocations;
+    USHORT  NumberOfLinenumbers;
+    ULONG   Characteristics;
+} IMAGE_SECTION_HEADER, *PIMAGE_SECTION_HEADER;
+
+#ifndef IMAGE_FIRST_SECTION
+#define IMAGE_FIRST_SECTION( ntheader ) ((PIMAGE_SECTION_HEADER)        \
+    ((ULONG_PTR)(ntheader) +                                            \
+     FIELD_OFFSET( IMAGE_NT_HEADERS64, OptionalHeader ) +               \
+     ((ntheader))->FileHeader.SizeOfOptionalHeader                      \
+    ))
+#endif
 
 #include <stddef.h>
 
