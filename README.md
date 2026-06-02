@@ -1,7 +1,6 @@
 # PwnedBoot
 This is a proof-of-concept payload that can replace `mcupdate_<platform>.dll`, which will get loaded by the Windows bootloader (`winload.efi`) even when Secure Boot is enabled. Tested on Windows 10 22H2 19045.2965.
 
-*Click to open YouTube*
 
 ## Usage
 1. Compile the project using [Visual Studio 2022](https://visualstudio.microsoft.com/) and [WDK](https://learn.microsoft.com/en-us/windows-hardware/drivers/download-the-wdk).
